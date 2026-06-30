@@ -146,7 +146,9 @@ class CrossModalAttentionFusion(nn.Module):
     输出: [B, 512]
     """
 
-    def __init__(self, d_model: int = 256, n_heads: int = FUSION_ATTENTION_HEADS):
+    def __init__(self, d_model: int = 256, n_heads: int = None):
+        if n_heads is None:
+            n_heads = FUSION_ATTENTION_HEADS
         super().__init__()
         self.attention = nn.MultiheadAttention(
             embed_dim=d_model,
