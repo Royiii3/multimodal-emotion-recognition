@@ -194,17 +194,18 @@ with col_text:
             st.warning("模型未加载，请先在本地运行训练脚本")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 右栏：人脸识别（上传/摄像头切换仅影响此栏） ---
+# --- 右栏：人脸识别 ---
 with col_face:
-    face_tab = st.radio("人脸来源", ["📷 上传图片", "📸 摄像头"], horizontal=True, label_visibility="collapsed")
+    st.markdown('<div class="input-panel">', unsafe_allow_html=True)
+    st.markdown("### 人脸识别")
+
+    face_tab = st.radio("来源", ["📷 上传图片", "📸 摄像头"], horizontal=True, label_visibility="collapsed")
 
     if face_tab == "📷 上传图片":
-        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "上传包含人脸的图片",
             type=["jpg","jpeg","png","bmp"], label_visibility="collapsed",
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
         if uploaded_file and HAS_CV2:
             img_bytes = np.frombuffer(uploaded_file.getvalue(), np.uint8)
@@ -240,10 +241,8 @@ with col_face:
                                 <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
                             </div>""", unsafe_allow_html=True)
 
-    else:  # 摄像头
-        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
+    else:
         camera_img = st.camera_input("拍照", key="webcam", label_visibility="collapsed")
-        st.markdown('</div>', unsafe_allow_html=True)
 
         if camera_img and HAS_CV2:
             img_bytes = camera_img.getvalue()
@@ -279,6 +278,8 @@ with col_face:
                                 <div style="font-weight:600;color:{color};">{cn}</div>
                                 <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
                             </div>""", unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 st.markdown('<div class="footer-spacer"></div>', unsafe_allow_html=True)
