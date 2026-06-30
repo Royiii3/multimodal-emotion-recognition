@@ -1,15 +1,11 @@
 """
-Emotion Recognition — Text + Face (dual model)
+情感识别 — 文本 + 人脸 双模型
 """
-import sys, os
+import sys, os, time
 import numpy as np
 
-# Graceful handling of optional heavy deps
-try:
-    import cv2
-    HAS_CV2 = True
-except ImportError:
-    HAS_CV2 = False
+try:    import cv2; HAS_CV2 = True
+except ImportError: HAS_CV2 = False
 
 import streamlit as st
 
@@ -23,10 +19,14 @@ try:
 except Exception:
     pass
 
-# ==================== Design tokens ====================
+# ==================== 情感中文映射 ====================
+EMOTION_CN = {
+    "happy": "开心", "sad": "悲伤", "angry": "愤怒",
+    "fearful": "恐惧", "disgust": "厌恶", "surprised": "惊讶", "neutral": "中性",
+}
 EMOTION_COLORS = {
-    "happy": "#f7c948", "sad": "#5b8def", "angry": "#e85545",
-    "fearful": "#9b59b6", "disgust": "#5da85a", "surprised": "#f08c3c",
+    "happy": "#e8a020", "sad": "#4a8fd4", "angry": "#d4453b",
+    "fearful": "#8b5ea8", "disgust": "#5a9a4b", "surprised": "#e87830",
     "neutral": "#8e8e9a",
 }
 EMOTION_EMOJI = {
@@ -34,51 +34,73 @@ EMOTION_EMOJI = {
     "disgust": "🤢", "surprised": "😲", "neutral": "😐",
 }
 
-st.set_page_config(page_title="Emotion Recognition", page_icon="🎭", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="情感识别", page_icon="🎭", layout="wide", initial_sidebar_state="collapsed")
 
-# ==================== Custom CSS ====================
+# ==================== 轻量明亮主题 CSS ====================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Figtree', -apple-system, sans-serif; color: #e0dcd0; }
-.stApp { background: radial-gradient(ellipse at 50% 0%, #14142a 0%, #0d0d1a 70%); }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
 
-.main-header { text-align: center; padding: 2rem 0 0.5rem 0; }
-.main-header h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.03em; color: #e0dcd0; margin: 0; }
-.main-header .tagline { font-size: 0.95rem; color: #7a7690; }
+html, body, [class*="css"] {
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+    color: #2c2c34;
+}
+.stApp {
+    background: linear-gradient(180deg, #f8f7f4 0%, #f0eeeb 100%);
+}
 
-.input-panel { background: rgba(26,26,48,0.7); border: 1px solid #2a2a40; border-radius: 18px; padding: 1.25rem; }
-.result-card { background: rgba(26,26,48,0.6); border: 1px solid #2a2a40; border-radius: 16px; padding: 1.25rem; text-align: center; }
+.main-header { text-align: center; padding: 1.8rem 0 0.3rem 0; }
+.main-header h1 { font-size: 2rem; font-weight: 700; color: #1a1a22; margin: 0; Letter-spacing: 0.04em; }
+.main-header .tagline { font-size: 0.9rem; color: #8e8c95; margin-top: 0.15rem; }
+
+.input-panel {
+    background: #ffffff; border: 1px solid #e8e6e1; border-radius: 16px;
+    padding: 1.25rem; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.result-card {
+    background: #ffffff; border: 1px solid #e8e6e1; border-radius: 14px;
+    padding: 1rem; text-align: center; box-shadow: 0 1px 8px rgba(0,0,0,0.03);
+}
 
 .emotion-result {
-    border-radius: 20px; padding: 1.25rem; text-align: center; margin-bottom: 0.75rem;
+    border-radius: 18px; padding: 1.1rem; text-align: center; margin-bottom: 0.6rem;
+    background: #ffffff; border: 1px solid #e8e6e1;
 }
 
 div.stButton > button {
-    background: linear-gradient(135deg, #c8a45c, #a07840); color: #0d0d1a;
-    border: none; border-radius: 12px; padding: 0.65rem 2rem; font-weight: 600;
-    font-size: 1rem; letter-spacing: 0.02em; transition: all 0.2s; width: 100%;
+    background: #2c2c34; color: #ffffff;
+    border: none; border-radius: 10px; padding: 0.6rem 1.8rem; font-weight: 600;
+    font-size: 0.95rem; transition: all 0.15s; width: 100%;
+    letter-spacing: 0.03em;
 }
-div.stButton > button:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(200,164,92,0.3); }
+div.stButton > button:hover { background: #444450; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 
-[data-testid="stFileUploader"] { border: 2px dashed #3a3a50 !important; border-radius: 14px !important; background: rgba(20,20,38,0.5) !important; }
-textarea { background: rgba(20,20,38,0.6) !important; border: 1px solid #2a2a40 !important; border-radius: 12px !important; color: #e0dcd0 !important; }
+[data-testid="stFileUploader"] {
+    border: 2px dashed #d8d5d0 !important; border-radius: 14px !important; background: #fafaf9 !important;
+}
+textarea {
+    background: #fafaf9 !important; border: 1px solid #e8e6e1 !important;
+    border-radius: 10px !important; color: #2c2c34 !important;
+}
 
-.stTabs [data-baseweb="tab-list"] { gap: 0.5rem; }
-.stTabs [data-baseweb="tab"] { border-radius: 10px; padding: 0.5rem 1.2rem; font-weight: 500; color: #7a7690; background: transparent; }
-.stTabs [aria-selected="true"] { background: rgba(200,164,92,0.15); color: #c8a45c; }
+.stTabs [data-baseweb="tab-list"] { gap: 0.4rem; }
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px; padding: 0.4rem 1rem; font-weight: 500;
+    color: #8e8c95; background: transparent;
+}
+.stTabs [aria-selected="true"] { background: #2c2c3410; color: #2c2c34; }
 
-.prob-row { display: flex; align-items: center; margin: 0.35rem 0; gap: 0.6rem; }
-.prob-label { width: 80px; text-align: right; font-weight: 500; font-size: 0.82rem; }
-.prob-bar-bg { flex: 1; height: 7px; background: #1a1a30; border-radius: 4px; overflow: hidden; }
-.prob-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-.prob-value { width: 42px; font-size: 0.78rem; font-weight: 600; text-align: left; }
+.prob-row { display: flex; align-items: center; margin: 0.3rem 0; gap: 0.5rem; }
+.prob-label { width: 55px; text-align: right; font-weight: 500; font-size: 0.8rem; }
+.prob-bar-bg { flex: 1; height: 6px; background: #eeedeb; border-radius: 3px; overflow: hidden; }
+.prob-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.prob-value { width: 38px; font-size: 0.75rem; font-weight: 600; text-align: left; }
 
 .footer-spacer { height: 2rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== Load models ====================
+# ==================== 加载模型 ====================
 @st.cache_resource
 def load_predictor():
     if HAS_MODELS:
@@ -87,7 +109,7 @@ def load_predictor():
 
 predictor = load_predictor()
 
-# ==================== Helpers ====================
+# ==================== 人脸检测 ====================
 def detect_all_faces(image_bgr):
     cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     gray = image_bgr if len(image_bgr.shape) == 2 else cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
@@ -108,152 +130,153 @@ def draw_face_boxes(image_bgr, faces):
     for _, bbox in faces:
         if bbox:
             x, y, w, h = bbox
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 220, 100), 2)
-            cv2.putText(img, "face", (x, y-8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 220, 100), 1)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (40, 180, 80), 2)
+            cv2.putText(img, "人脸", (x, y-8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 180, 80), 1)
     return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+# ==================== 概率条 ====================
 def render_prob_bars(all_probs):
     html = ""
     for emotion in EMOTION_LABELS:
         prob = all_probs.get(emotion, 0)
         color = EMOTION_COLORS[emotion]
+        cn = EMOTION_CN.get(emotion, emotion)
         html += f"""<div class="prob-row">
-            <span class="prob-label" style="color:{color}">{emotion}</span>
+            <span class="prob-label" style="color:{color}">{cn}</span>
             <div class="prob-bar-bg"><div class="prob-bar-fill" style="width:{prob*100}%;background:{color}"></div></div>
             <span class="prob-value" style="color:{color}">{prob:.1%}</span>
         </div>"""
     st.markdown(html, unsafe_allow_html=True)
 
-def render_emotion_card(prediction, confidence, modality_label):
+def render_emotion_card(prediction, confidence, model_name):
     color = EMOTION_COLORS[prediction]
     emoji = EMOTION_EMOJI.get(prediction, "")
+    cn = EMOTION_CN.get(prediction, prediction)
     st.markdown(f"""
-    <div class="emotion-result" style="
-        background: radial-gradient(circle at center, {color}22 0%, transparent 70%);
-        border: 1px solid {color}44;
-    ">
-        <div style="font-size:2.5rem;">{emoji}</div>
-        <div style="font-size:1.5rem;font-weight:700;color:{color};">{prediction.upper()}</div>
-        <div style="font-size:0.9rem;color:{color}88;">{confidence:.1%}</div>
-        <div style="font-size:0.7rem;color:#7a7690;margin-top:0.3rem;">{modality_label}</div>
+    <div class="emotion-result" style="border-color: {color}33;">
+        <div style="font-size:2.4rem;">{emoji}</div>
+        <div style="font-size:1.4rem;font-weight:700;color:{color};">{cn}</div>
+        <div style="font-size:0.85rem;color:#8e8c95;">置信度 {confidence:.1%}</div>
+        <div style="font-size:0.7rem;color:#b8b6b2;margin-top:0.2rem;">{model_name}</div>
     </div>""", unsafe_allow_html=True)
 
-# ==================== UI ====================
+# ==================== 摄像头重置 ====================
+if "cam_counter" not in st.session_state:
+    st.session_state.cam_counter = 0
+
+# ==================== UI 头部 ====================
 st.markdown("""
 <div class="main-header">
-    <h1>Emotion Recognition</h1>
-    <p class="tagline">Text &middot; Face &middot; Dual Model</p>
+    <h1>情感识别</h1>
+    <p class="tagline">文本 &middot; 人脸 &middot; 双模型独立推理</p>
 </div>
 """, unsafe_allow_html=True)
 
-tab_img, tab_cam = st.tabs(["Upload Image", "Camera"])
+tab_img, tab_cam = st.tabs(["📷 上传图片", "📸 摄像头"])
 
-# ==================== TAB 1: Upload ====================
+# ==================== Tab 1: 上传图片 ====================
 with tab_img:
     col_text, col_img = st.columns([1, 1])
     with col_text:
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### Text")
+        st.markdown("### 文本识别")
         text_input = st.text_area(
-            "Describe how you feel...",
+            "输入描述情绪的英文文本...",
             value="I am feeling great today, everything is wonderful!",
             height=140, label_visibility="collapsed",
         )
-        if st.button("Analyze Text", type="primary", key="btn_text"):
-            result = predictor.predict_text(text_input.strip())
-            if "error" not in result:
-                col_card, col_bars = st.columns([1, 2])
-                with col_card:
-                    render_emotion_card(result["prediction"], result["confidence"], "Text Model · 94.8%")
-                with col_bars:
-                    st.markdown("#### Text probabilities")
-                    render_prob_bars(result["all_probs"])
+        if st.button("分析文本", type="primary", key="btn_text"):
+            if predictor:
+                result = predictor.predict_text(text_input.strip())
+                if "error" not in result:
+                    col_card, col_bars = st.columns([1, 2])
+                    with col_card:
+                        render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
+                    with col_bars:
+                        st.markdown("#### 各情感概率")
+                        render_prob_bars(result["all_probs"])
+            else:
+                st.warning("模型未加载，请先在本地运行训练脚本")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_img:
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### Face Image")
+        st.markdown("### 人脸识别")
         uploaded_file = st.file_uploader(
-            "Upload a photo containing faces",
+            "上传包含人脸的图片",
             type=["jpg","jpeg","png","bmp"], label_visibility="collapsed",
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if uploaded_file:
+    if uploaded_file and HAS_CV2:
         img_bytes = np.frombuffer(uploaded_file.getvalue(), np.uint8)
         img_bgr = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
         faces = detect_all_faces(img_bgr)
 
         col_orig, col_detected = st.columns([1, 1])
         with col_orig:
-            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="Original", use_container_width=True)
+            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="原图", use_container_width=True)
         with col_detected:
             if faces:
-                st.image(draw_face_boxes(img_bgr, faces), caption=f"{len(faces)} face(s) detected", use_container_width=True)
+                st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
             else:
-                st.warning("No faces detected. Using whole image.")
+                st.warning("未检测到人脸，将使用整张图片")
 
-        if st.button("Analyze Faces", type="primary", key="btn_img"):
+        if st.button("分析人脸", type="primary", key="btn_img"):
             if not faces:
-                st.error("No faces found.")
-            else:
+                st.error("未检测到人脸")
+            elif predictor:
                 st.markdown("---")
-                st.markdown(f"### {len(faces)} face(s) analyzed — Image Model")
+                st.markdown(f"### 检测到 {len(faces)} 张人脸 — 图像模型")
                 face_cols = st.columns(min(len(faces), 3))
                 for i, (face_np, bbox) in enumerate(faces):
                     result = predictor.predict_image(face_np)
                     col = face_cols[i % 3]
                     with col:
                         color = EMOTION_COLORS[result["prediction"]]
+                        cn = EMOTION_CN.get(result["prediction"], "")
                         emoji = EMOTION_EMOJI.get(result["prediction"], "")
                         st.markdown(f"""
                         <div class="result-card">
-                            <div style="font-size:2rem;">{emoji}</div>
-                            <div style="font-weight:600;color:{color};">{result['prediction'].upper()}</div>
-                            <div style="font-size:0.85rem;color:#7a7690;">{result['confidence']:.1%}</div>
+                            <div style="font-size:1.8rem;">{emoji}</div>
+                            <div style="font-weight:600;color:{color};">{cn}</div>
+                            <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
                         </div>""", unsafe_allow_html=True)
 
-                # Detail for first face
-                if faces:
-                    result = predictor.predict_image(faces[0][0])
-                    st.markdown("---")
-                    st.markdown("### Face #1 Detail — Image Model")
-                    col_card, col_bars = st.columns([1, 2])
-                    with col_card:
-                        render_emotion_card(result["prediction"], result["confidence"], "Image Model · 87%+")
-                    with col_bars:
-                        st.markdown("#### Image probabilities")
-                        render_prob_bars(result["all_probs"])
-
-# ==================== TAB 2: Camera ====================
+# ==================== Tab 2: 摄像头 ====================
 with tab_cam:
     col_text_cam, col_cam = st.columns([1, 1])
     with col_text_cam:
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### Text")
+        st.markdown("### 文本识别")
         text_input_cam = st.text_area(
-            "Describe how you feel...",
+            "输入描述情绪的英文文本...",
             value="I am feeling great today, everything is wonderful!",
             height=140, label_visibility="collapsed", key="text_cam",
         )
-        if st.button("Analyze Text", type="primary", key="btn_text_cam"):
-            result = predictor.predict_text(text_input_cam.strip())
-            if "error" not in result:
-                col_card, col_bars = st.columns([1, 2])
-                with col_card:
-                    render_emotion_card(result["prediction"], result["confidence"], "Text Model · 94.8%")
-                with col_bars:
-                    st.markdown("#### Text probabilities")
-                    render_prob_bars(result["all_probs"])
+        if st.button("分析文本", type="primary", key="btn_text_cam"):
+            if predictor:
+                result = predictor.predict_text(text_input_cam.strip())
+                if "error" not in result:
+                    col_card, col_bars = st.columns([1, 2])
+                    with col_card:
+                        render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
+                    with col_bars:
+                        st.markdown("#### 各情感概率")
+                        render_prob_bars(result["all_probs"])
+            else:
+                st.warning("模型未加载")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_cam:
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### Camera")
-        camera_img = st.camera_input("Take a picture", key="webcam", label_visibility="collapsed")
+        st.markdown("### 人脸识别")
+        # Dynamic key to allow re-taking photos
+        cam_key = f"webcam_{st.session_state.cam_counter}"
+        camera_img = st.camera_input("拍照", key=cam_key, label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if camera_img:
+    if camera_img and HAS_CV2:
         img_bytes = camera_img.getvalue()
         img_np = np.frombuffer(img_bytes, np.uint8)
         img_bgr = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
@@ -261,42 +284,35 @@ with tab_cam:
 
         col_orig, col_detected = st.columns([1, 1])
         with col_orig:
-            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="Captured", use_container_width=True)
+            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="拍摄画面", use_container_width=True)
         with col_detected:
             if faces:
-                st.image(draw_face_boxes(img_bgr, faces), caption=f"{len(faces)} face(s) detected", use_container_width=True)
+                st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
             else:
-                st.warning("No faces detected.")
+                st.warning("未检测到人脸")
 
-        if st.button("Analyze Faces", type="primary", key="btn_cam"):
+        if st.button("分析人脸", type="primary", key="btn_cam"):
             if not faces:
-                st.error("No faces found.")
-            else:
+                st.error("未检测到人脸，请面向镜头")
+            elif predictor:
                 st.markdown("---")
-                st.markdown(f"### {len(faces)} face(s) analyzed — Image Model")
+                st.markdown(f"### 检测到 {len(faces)} 张人脸 — 图像模型")
                 face_cols = st.columns(min(len(faces), 3))
                 for i, (face_np, bbox) in enumerate(faces):
                     result = predictor.predict_image(face_np)
                     col = face_cols[i % 3]
                     with col:
                         color = EMOTION_COLORS[result["prediction"]]
+                        cn = EMOTION_CN.get(result["prediction"], "")
                         emoji = EMOTION_EMOJI.get(result["prediction"], "")
                         st.markdown(f"""
                         <div class="result-card">
-                            <div style="font-size:2rem;">{emoji}</div>
-                            <div style="font-weight:600;color:{color};">{result['prediction'].upper()}</div>
-                            <div style="font-size:0.85rem;color:#7a7690;">{result['confidence']:.1%}</div>
+                            <div style="font-size:1.8rem;">{emoji}</div>
+                            <div style="font-weight:600;color:{color};">{cn}</div>
+                            <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
                         </div>""", unsafe_allow_html=True)
-
-                if faces:
-                    result = predictor.predict_image(faces[0][0])
-                    st.markdown("---")
-                    st.markdown("### Face #1 Detail — Image Model")
-                    col_card, col_bars = st.columns([1, 2])
-                    with col_card:
-                        render_emotion_card(result["prediction"], result["confidence"], "Image Model · 87%+")
-                    with col_bars:
-                        st.markdown("#### Image probabilities")
-                        render_prob_bars(result["all_probs"])
+                # Reset camera for next photo
+                st.session_state.cam_counter += 1
+                st.rerun()
 
 st.markdown('<div class="footer-spacer"></div>', unsafe_allow_html=True)
