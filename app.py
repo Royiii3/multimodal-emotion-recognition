@@ -168,143 +168,117 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tab_img, tab_cam = st.tabs(["📷 上传图片", "📸 摄像头"])
+# ==================== 固定两栏布局：左文本，右人脸 ====================
+col_text, col_face = st.columns([1, 1])
 
-# ==================== Tab 1: 上传图片 ====================
-with tab_img:
-    col_text, col_img = st.columns([1, 1])
-    with col_text:
-        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### 文本识别")
-        text_input = st.text_area(
-            "输入描述情绪的英文文本...",
-            value="I am feeling great today, everything is wonderful!",
-            height=140, label_visibility="collapsed",
-        )
-        if st.button("分析文本", type="primary", key="btn_text"):
-            if predictor:
-                result = predictor.predict_text(text_input.strip())
-                if "error" not in result:
-                    col_card, col_bars = st.columns([1, 2])
-                    with col_card:
-                        render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
-                    with col_bars:
-                        st.markdown("#### 各情感概率")
-                        render_prob_bars(result["all_probs"])
-            else:
-                st.warning("模型未加载，请先在本地运行训练脚本")
-        st.markdown('</div>', unsafe_allow_html=True)
+# --- 左栏：文本识别（始终固定） ---
+with col_text:
+    st.markdown('<div class="input-panel">', unsafe_allow_html=True)
+    st.markdown("### 文本识别")
+    text_input = st.text_area(
+        "输入描述情绪的英文文本...",
+        value="I am feeling great today, everything is wonderful!",
+        height=140, label_visibility="collapsed",
+    )
+    if st.button("分析文本", type="primary", key="btn_text"):
+        if predictor:
+            result = predictor.predict_text(text_input.strip())
+            if "error" not in result:
+                col_card, col_bars = st.columns([1, 2])
+                with col_card:
+                    render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
+                with col_bars:
+                    st.markdown("#### 各情感概率")
+                    render_prob_bars(result["all_probs"])
+        else:
+            st.warning("模型未加载，请先在本地运行训练脚本")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_img:
+# --- 右栏：人脸识别（上传/摄像头切换仅影响此栏） ---
+with col_face:
+    face_tab = st.radio("人脸来源", ["📷 上传图片", "📸 摄像头"], horizontal=True, label_visibility="collapsed")
+
+    if face_tab == "📷 上传图片":
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### 人脸识别")
         uploaded_file = st.file_uploader(
             "上传包含人脸的图片",
             type=["jpg","jpeg","png","bmp"], label_visibility="collapsed",
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if uploaded_file and HAS_CV2:
-        img_bytes = np.frombuffer(uploaded_file.getvalue(), np.uint8)
-        img_bgr = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
-        faces = detect_all_faces(img_bgr)
+        if uploaded_file and HAS_CV2:
+            img_bytes = np.frombuffer(uploaded_file.getvalue(), np.uint8)
+            img_bgr = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
+            faces = detect_all_faces(img_bgr)
 
-        col_orig, col_detected = st.columns([1, 1])
-        with col_orig:
-            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="原图", use_container_width=True)
-        with col_detected:
-            if faces:
-                st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
-            else:
-                st.warning("未检测到人脸，将使用整张图片")
+            col_orig, col_detected = st.columns([1, 1])
+            with col_orig:
+                st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="原图", use_container_width=True)
+            with col_detected:
+                if faces:
+                    st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
+                else:
+                    st.warning("未检测到人脸，将使用整张图片")
 
-        if st.button("分析人脸", type="primary", key="btn_img"):
-            if not faces:
-                st.error("未检测到人脸")
-            elif predictor:
-                st.markdown("---")
-                st.markdown(f"### 检测到 {len(faces)} 张人脸 — 图像模型")
-                face_cols = st.columns(min(len(faces), 3))
-                for i, (face_np, bbox) in enumerate(faces):
-                    result = predictor.predict_image(face_np)
-                    col = face_cols[i % 3]
-                    with col:
-                        color = EMOTION_COLORS[result["prediction"]]
-                        cn = EMOTION_CN.get(result["prediction"], "")
-                        emoji = EMOTION_EMOJI.get(result["prediction"], "")
-                        st.markdown(f"""
-                        <div class="result-card">
-                            <div style="font-size:1.8rem;">{emoji}</div>
-                            <div style="font-weight:600;color:{color};">{cn}</div>
-                            <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
-                        </div>""", unsafe_allow_html=True)
+            if st.button("分析人脸", type="primary", key="btn_img"):
+                if not faces:
+                    st.error("未检测到人脸")
+                elif predictor:
+                    st.markdown("---")
+                    face_cols = st.columns(min(len(faces), 3))
+                    for i, (face_np, bbox) in enumerate(faces):
+                        result = predictor.predict_image(face_np)
+                        col = face_cols[i % 3]
+                        with col:
+                            color = EMOTION_COLORS[result["prediction"]]
+                            cn = EMOTION_CN.get(result["prediction"], "")
+                            emoji = EMOTION_EMOJI.get(result["prediction"], "")
+                            st.markdown(f"""
+                            <div class="result-card">
+                                <div style="font-size:1.8rem;">{emoji}</div>
+                                <div style="font-weight:600;color:{color};">{cn}</div>
+                                <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
+                            </div>""", unsafe_allow_html=True)
 
-# ==================== Tab 2: 摄像头 ====================
-with tab_cam:
-    col_text_cam, col_cam = st.columns([1, 1])
-    with col_text_cam:
+    else:  # 摄像头
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### 文本识别")
-        text_input_cam = st.text_area(
-            "输入描述情绪的英文文本...",
-            value="I am feeling great today, everything is wonderful!",
-            height=140, label_visibility="collapsed", key="text_cam",
-        )
-        if st.button("分析文本", type="primary", key="btn_text_cam"):
-            if predictor:
-                result = predictor.predict_text(text_input_cam.strip())
-                if "error" not in result:
-                    col_card, col_bars = st.columns([1, 2])
-                    with col_card:
-                        render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
-                    with col_bars:
-                        st.markdown("#### 各情感概率")
-                        render_prob_bars(result["all_probs"])
-            else:
-                st.warning("模型未加载")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_cam:
-        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        st.markdown("### 人脸识别")
         camera_img = st.camera_input("拍照", key="webcam", label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if camera_img and HAS_CV2:
-        img_bytes = camera_img.getvalue()
-        img_np = np.frombuffer(img_bytes, np.uint8)
-        img_bgr = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
-        faces = detect_all_faces(img_bgr)
+        if camera_img and HAS_CV2:
+            img_bytes = camera_img.getvalue()
+            img_np = np.frombuffer(img_bytes, np.uint8)
+            img_bgr = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+            faces = detect_all_faces(img_bgr)
 
-        col_orig, col_detected = st.columns([1, 1])
-        with col_orig:
-            st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="拍摄画面", use_container_width=True)
-        with col_detected:
-            if faces:
-                st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
-            else:
-                st.warning("未检测到人脸")
+            col_orig, col_detected = st.columns([1, 1])
+            with col_orig:
+                st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="拍摄画面", use_container_width=True)
+            with col_detected:
+                if faces:
+                    st.image(draw_face_boxes(img_bgr, faces), caption=f"检测到 {len(faces)} 张人脸", use_container_width=True)
+                else:
+                    st.warning("未检测到人脸")
 
-        if st.button("分析人脸", type="primary", key="btn_cam"):
-            if not faces:
-                st.error("未检测到人脸，请面向镜头")
-            elif predictor:
-                st.markdown("---")
-                st.markdown(f"### 检测到 {len(faces)} 张人脸 — 图像模型")
-                face_cols = st.columns(min(len(faces), 3))
-                for i, (face_np, bbox) in enumerate(faces):
-                    result = predictor.predict_image(face_np)
-                    col = face_cols[i % 3]
-                    with col:
-                        color = EMOTION_COLORS[result["prediction"]]
-                        cn = EMOTION_CN.get(result["prediction"], "")
-                        emoji = EMOTION_EMOJI.get(result["prediction"], "")
-                        st.markdown(f"""
-                        <div class="result-card">
-                            <div style="font-size:1.8rem;">{emoji}</div>
-                            <div style="font-weight:600;color:{color};">{cn}</div>
-                            <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
-                        </div>""", unsafe_allow_html=True)
+            if st.button("分析人脸", type="primary", key="btn_cam"):
+                if not faces:
+                    st.error("未检测到人脸，请面向镜头")
+                elif predictor:
+                    st.markdown("---")
+                    face_cols = st.columns(min(len(faces), 3))
+                    for i, (face_np, bbox) in enumerate(faces):
+                        result = predictor.predict_image(face_np)
+                        col = face_cols[i % 3]
+                        with col:
+                            color = EMOTION_COLORS[result["prediction"]]
+                            cn = EMOTION_CN.get(result["prediction"], "")
+                            emoji = EMOTION_EMOJI.get(result["prediction"], "")
+                            st.markdown(f"""
+                            <div class="result-card">
+                                <div style="font-size:1.8rem;">{emoji}</div>
+                                <div style="font-weight:600;color:{color};">{cn}</div>
+                                <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
+                            </div>""", unsafe_allow_html=True)
 
 
 st.markdown('<div class="footer-spacer"></div>', unsafe_allow_html=True)
