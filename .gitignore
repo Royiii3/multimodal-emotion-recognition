@@ -1,0 +1,48 @@
+# Claude / IDE
+CLAUDE.md
+.claude/
+.superpowers/
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Data (too large, user provides their own)
+data/*.npy
+data/*.csv
+data/preprocessed/
+data/*.json
+data/*.pkl
+
+# Models (too large)
+models/*.pth
+
+# Results
+results/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Streamlit
+.streamlit/
+
+# Course templates (not code)
+*.docx
+*.doc
+*.pdf
+
+# Secrets
+.env
+.env.local
+*.secret
+
+# Previous experiments
+Experiments/
+BUG_REPORT.md
