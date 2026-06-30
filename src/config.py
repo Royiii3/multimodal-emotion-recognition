@@ -66,7 +66,6 @@ IMAGE_KERNEL_SIZE = 3
 IMAGE_POOL_SIZE = 2
 
 # Audio encoder (legacy — kept for model compat)
-AUDIO_CONV_CHANNELS = [64, 128]
 AUDIO_CONV_KERNEL = 3
 AUDIO_LSTM_HIDDEN = 128
 AUDIO_LSTM_LAYERS = 1
@@ -105,7 +104,7 @@ IMAGE_AUG_PROB = 0.5
 MODALITY_DROP_PROB = 0.0
 
 # ==================== DataLoader ====================
-NUM_WORKERS = 4
+NUM_WORKERS = 0      # Windows 安全值 (mmap 不可跨进程序列化)
 PIN_MEMORY = True if DEVICE.type == "cuda" else False
 
 # ==================== Logging & save ====================
