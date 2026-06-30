@@ -3,12 +3,25 @@ Emotion Recognition — Text + Face (dual model)
 """
 import sys, os
 import numpy as np
-import cv2
+
+# Graceful handling of optional heavy deps
+try:
+    import cv2
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
+
 import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.config import EMOTION_LABELS, IMAGE_SIZE
-from src.inference import EmotionPredictor
+
+HAS_MODELS = False
+try:
+    from src.inference import EmotionPredictor
+    HAS_MODELS = True
+except Exception:
+    pass
 
 # ==================== Design tokens ====================
 EMOTION_COLORS = {
@@ -68,7 +81,9 @@ textarea { background: rgba(20,20,38,0.6) !important; border: 1px solid #2a2a40 
 # ==================== Load models ====================
 @st.cache_resource
 def load_predictor():
-    return EmotionPredictor()
+    if HAS_MODELS:
+        return EmotionPredictor()
+    return None
 
 predictor = load_predictor()
 
