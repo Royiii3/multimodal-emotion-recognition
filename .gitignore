@@ -17,10 +17,10 @@ data/*.npy
 data/*.csv
 data/preprocessed/
 data/*.json
-data/*.pkl
+data/*.npy
+data/preprocessed/
 
-# Models (too large)
-models/*.pth
+# Models uploaded to git (under 100MB each)
 
 # Results
 results/
