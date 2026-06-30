@@ -181,17 +181,19 @@ with col_text:
         height=140, label_visibility="collapsed",
     )
     if st.button("分析文本", type="primary", key="btn_text"):
-        if predictor:
+        if predictor is None:
+            st.error("模型未加载 — 请先在终端运行: python src/text_trainer.py")
+        else:
             result = predictor.predict_text(text_input.strip())
-            if "error" not in result:
+            if "error" in result:
+                st.error(f"预测失败: {result['error']}")
+            else:
                 col_card, col_bars = st.columns([1, 2])
                 with col_card:
                     render_emotion_card(result["prediction"], result["confidence"], "文本模型 · 94.8%")
                 with col_bars:
                     st.markdown("#### 各情感概率")
                     render_prob_bars(result["all_probs"])
-        else:
-            st.warning("模型未加载，请先在本地运行训练脚本")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 右栏：人脸识别 ---
