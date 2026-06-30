@@ -160,10 +160,6 @@ def render_emotion_card(prediction, confidence, model_name):
         <div style="font-size:0.7rem;color:#b8b6b2;margin-top:0.2rem;">{model_name}</div>
     </div>""", unsafe_allow_html=True)
 
-# ==================== 摄像头重置 ====================
-if "cam_counter" not in st.session_state:
-    st.session_state.cam_counter = 0
-
 # ==================== UI 头部 ====================
 st.markdown("""
 <div class="main-header">
@@ -271,9 +267,7 @@ with tab_cam:
     with col_cam:
         st.markdown('<div class="input-panel">', unsafe_allow_html=True)
         st.markdown("### 人脸识别")
-        # Dynamic key to allow re-taking photos
-        cam_key = f"webcam_{st.session_state.cam_counter}"
-        camera_img = st.camera_input("拍照", key=cam_key, label_visibility="collapsed")
+        camera_img = st.camera_input("拍照", key="webcam", label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
 
     if camera_img and HAS_CV2:
@@ -311,8 +305,6 @@ with tab_cam:
                             <div style="font-weight:600;color:{color};">{cn}</div>
                             <div style="font-size:0.8rem;color:#8e8c95;">{result['confidence']:.1%}</div>
                         </div>""", unsafe_allow_html=True)
-                # Reset camera for next photo
-                st.session_state.cam_counter += 1
-                st.rerun()
+
 
 st.markdown('<div class="footer-spacer"></div>', unsafe_allow_html=True)
