@@ -13,11 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.config import EMOTION_LABELS, IMAGE_SIZE
 
 HAS_MODELS = False
+MODEL_LOAD_ERROR = ""
 try:
     from src.inference import EmotionPredictor
     HAS_MODELS = True
-except Exception:
-    pass
+except Exception as e:
+    MODEL_LOAD_ERROR = str(e)
 
 # ==================== 情感中文映射 ====================
 EMOTION_CN = {
@@ -182,7 +183,7 @@ with col_text:
     )
     if st.button("分析文本", type="primary", key="btn_text"):
         if predictor is None:
-            st.error("模型未加载 — 请先在终端运行: python src/text_trainer.py")
+            st.error(f"模型未加载: {MODEL_LOAD_ERROR}")
         else:
             result = predictor.predict_text(text_input.strip())
             if "error" in result:
