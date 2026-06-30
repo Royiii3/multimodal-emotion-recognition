@@ -82,6 +82,7 @@ class EmotionPredictor:
     def predict_text(self, text: str) -> dict:
         """Text-only prediction"""
         if not self.text_model or not self.text_processor:
+            return {"error": f"Text model ({self.text_model is not None}) / vocab ({self.text_processor is not None})"}
             return {"error": "Text model not loaded"}
         tokens = self.text_processor.encode(text).unsqueeze(0).to(self.device)
         with torch.no_grad():
