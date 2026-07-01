@@ -1,8 +1,9 @@
 """
 情感识别 — 文本 + 人脸 双模型
 """
-import sys, os, time
+import sys, os, time, io
 import numpy as np
+from PIL import Image
 
 try:    import cv2; HAS_CV2 = True
 except ImportError: HAS_CV2 = False
@@ -98,6 +99,35 @@ textarea {
 .prob-value { width: 38px; font-size: 0.75rem; font-weight: 600; text-align: left; }
 
 .footer-spacer { height: 2rem; }
+
+/* 摄像头实时预览 + 拍照后图片镜像翻转 */
+.stCameraInput video,
+.stCameraInput img,
+[data-testid="stCameraInput"] video,
+[data-testid="stCameraInput"] img,
+[data-testid="stCameraInputWebcamStyledBox"] video {
+    transform: scaleX(-1) !important;
+}
+
+/* "Clear photo" → "清除照片" */
+[data-testid="stCameraInputButton"] > span {
+    font-size: 0 !important;
+}
+[data-testid="stCameraInputButton"] > span::after {
+    content: "清除照片";
+    font-size: 1rem !important;
+    font-weight: 400;
+}
+
+/* "Take Photo" → "拍摄照片" (按钮内没有 span 时即为拍照按钮) */
+[data-testid="stCameraInputButton"]:not(:has(> span)) {
+    font-size: 0 !important;
+}
+[data-testid="stCameraInputButton"]:not(:has(> span))::after {
+    content: "拍摄照片";
+    font-size: 1rem !important;
+    font-weight: 400;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -126,13 +156,15 @@ def detect_all_faces(image_bgr):
     return results
 
 def draw_face_boxes(image_bgr, faces):
+    """用人脸检测框标注人脸，纯数字标签避免字体问题"""
     img = image_bgr.copy()
-    if len(img.shape) == 2: img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    for _, bbox in faces:
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    for i, (_, bbox) in enumerate(faces):
         if bbox:
             x, y, w, h = bbox
             cv2.rectangle(img, (x, y), (x+w, y+h), (40, 180, 80), 2)
-            cv2.putText(img, "人脸", (x, y-8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 180, 80), 1)
+            cv2.putText(img, str(i+1), (x, y-8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (40, 180, 80), 2)
     return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 # ==================== 概率条 ====================
@@ -249,8 +281,10 @@ with col_face:
 
         if camera_img and HAS_CV2:
             img_bytes = camera_img.getvalue()
-            img_np = np.frombuffer(img_bytes, np.uint8)
-            img_bgr = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+            # 用 PIL 加载并水平镜像翻转
+            img_pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            img_pil = img_pil.transpose(Image.FLIP_LEFT_RIGHT)
+            img_bgr = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
             faces = detect_all_faces(img_bgr)
 
             col_orig, col_detected = st.columns([1, 1])
