@@ -128,7 +128,32 @@ textarea {
     font-size: 1rem !important;
     font-weight: 400;
 }
+
+/* 文件上传器英文 → 中文: 用 JS 替换文本节点 */
 </style>
+""", unsafe_allow_html=True)
+
+# ==================== 文件上传器英文 → 中文 ====================
+st.markdown("""
+<script>
+(function() {
+    function tr() {
+        document.querySelectorAll('[data-testid="stFileUploaderDropzone"] button').forEach(btn => {
+            let tw = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT);
+            let node;
+            while (node = tw.nextNode()) {
+                if (node.textContent.trim() === 'Upload')
+                    node.textContent = '上传文件';
+            }
+        });
+        document.querySelectorAll('[data-testid="stFileUploaderDropzoneInstructions"]').forEach(el => {
+            el.innerHTML = el.innerHTML.replace(/per file/g, '/文件');
+        });
+    }
+    tr();
+    new MutationObserver(tr).observe(document.body, {childList: true, subtree: true});
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ==================== 加载模型 ====================
