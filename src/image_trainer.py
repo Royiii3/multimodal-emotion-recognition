@@ -51,9 +51,9 @@ IMG_BATCH_SIZE = 512         # Larger batch for less noisy gradients
 IMG_GRAD_ACCUM = 1
 IMG_LR = 1e-2                # SGD needs higher LR than Adam
 IMG_MIN_LR = 1e-6
-IMG_MAX_EPOCHS = 150         # More epochs without augmentation
-IMG_PATIENCE = 40
-IMG_LR_T0 = 30
+IMG_MAX_EPOCHS = 200         # Much longer with augmentation
+IMG_PATIENCE = 50
+IMG_LR_T0 = 40             # Longer cycle for more epochs
 IMG_LR_T_MULT = 2
 IMG_WARMUP = 0               # No warmup — start aggressive
 IMG_WEIGHT_DECAY = 1e-4
@@ -162,8 +162,8 @@ def compute_class_weights(dataset: FER2013Dataset) -> torch.Tensor:
 
 def create_dataloaders():
     """Create train/val/test dataloaders with class-balanced oversampling."""
-    # Train set from FER2013 'train' folder — NO augmentation for clean signal
-    train_full = FER2013Dataset(split='train', augment=False)
+    # Train set from FER2013 'train' folder — WITH augmentation for generalization
+    train_full = FER2013Dataset(split='train', augment=True)
 
     # ---- Balance training set by oversampling minority classes ----
     # Group samples by label

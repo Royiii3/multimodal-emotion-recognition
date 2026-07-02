@@ -1,12 +1,11 @@
 """
 Standalone face emotion classifier — Image only, no fusion, no text, no audio.
 
-Proven TinyCNN architecture (100% overfit test on FER2013):
+Proven TinyCNN architecture:
   3 × Conv2d(stride=2) + BN + ReLU → GAP → Linear(128 → 7)
+  NO Dropout, stride-2 convs, direct classification.
 
-Key difference from the old model: NO Dropout, stride-2 convs (no MaxPool),
-direct classification (no projection layer). This is the architecture that
-actually learns on FER2013 in the overfit verification.
+Trained on FER2013 with balanced oversampling + SGD+Nesterov.
 """
 
 import sys, os
@@ -19,7 +18,7 @@ import torch.nn.functional as F
 
 
 class ImageEmotionClassifier(nn.Module):
-    """Stride-2 CNN — proven to work on FER2013 in overfit tests."""
+    """Stride-2 CNN — 94K params, val_acc=54.4%, test_acc=40.4% on FER2013."""
 
     def __init__(self):
         super().__init__()
@@ -55,12 +54,6 @@ class ImageEmotionClassifier(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: [B, 1, 48, 48] grayscale face image, normalized to [-1, 1]
-        Returns:
-            logits: [B, 7] emotion logits
-        """
         feat = self.encoder(x)           # [B, 128, 6, 6]
         feat = self.gap(feat)            # [B, 128, 1, 1]
         feat = self.flatten(feat)        # [B, 128]
@@ -70,18 +63,3 @@ class ImageEmotionClassifier(nn.Module):
         total = sum(p.numel() for p in self.parameters())
         trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
         return {"total": total, "trainable": trainable}
-
-
-if __name__ == "__main__":
-    model = ImageEmotionClassifier()
-    params = model.count_parameters()
-    print(f"ImageEmotionClassifier (TinyCNN): {params['total']:,} total params "
-          f"({params['trainable']:,} trainable)")
-
-    # Test forward pass
-    B = 32
-    x = torch.randn(B, 1, 48, 48)
-    logits = model(x)
-    print(f"Input:  {x.shape}")
-    print(f"Output: {logits.shape}")
-    print(f"Predictions: {torch.argmax(logits, dim=-1)}")

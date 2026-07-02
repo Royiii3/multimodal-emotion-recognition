@@ -29,12 +29,18 @@ class EmotionPredictor:
         self.image_model = ImageEmotionClassifier().to(self.device)
         img_path = os.path.join(MODEL_DIR, "best_image_model.pth")
         if os.path.exists(img_path):
-            ckpt = torch.load(img_path, map_location=self.device, weights_only=False)
-            self.image_model.load_state_dict(ckpt["model_state_dict"])
-            self.image_model.eval()
-            print(f"[OK] Image model loaded (best_val_acc={ckpt.get('best_val_acc',0):.2%})")
+            try:
+                ckpt = torch.load(img_path, map_location=self.device, weights_only=False)
+                self.image_model.load_state_dict(ckpt["model_state_dict"])
+                self.image_model.eval()
+                print(f"[OK] Image model loaded (best_val_acc={ckpt.get('best_val_acc',0):.2%})")
+            except Exception as e:
+                print(f"[ERROR] Image model failed to load: {e}")
+                print(f"[WARN] Using untrained random weights — predictions will be wrong!")
         else:
-            print(f"[WARN] Image model not found at {img_path} — run: python src/image_trainer.py")
+            print(f"[WARN] Image model not found at {img_path}")
+            print(f"[WARN] Available models: {os.listdir(MODEL_DIR)}")
+            print(f"[WARN] Using untrained random weights — predictions will be wrong!")
 
         # --- Text model ---
         text_path = os.path.join(MODEL_DIR, "best_text_model.pth")
