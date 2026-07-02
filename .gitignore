@@ -46,3 +46,5 @@ Thumbs.db
 # Previous experiments
 Experiments/
 BUG_REPORT.md
+models/best_model.pth
+models/final_model.pth
