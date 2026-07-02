@@ -1,7 +1,11 @@
 """
 Inference — two independent models: Text + Image
 No fusion, no audio. Clean and simple.
+
+Image model: standalone ImageEmotionClassifier (trained on FER2013)
+Text model: TextEmotionClassifier (BiLSTM on emotion corpus)
 """
+
 import os, sys
 import numpy as np
 import torch
@@ -10,7 +14,7 @@ import cv2
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import *
-from src.model import MultiModalEmotionNet
+from src.image_model import ImageEmotionClassifier
 from src.text_model import TextEmotionClassifier
 from src.preprocess import TextPreprocessor
 
@@ -21,16 +25,16 @@ class EmotionPredictor:
     def __init__(self):
         self.device = DEVICE
 
-        # --- Image model ---
-        self.image_model = MultiModalEmotionNet().to(self.device)
-        img_path = os.path.join(MODEL_DIR, "best_model.pth")
+        # --- Image model (standalone CNN, no fusion) ---
+        self.image_model = ImageEmotionClassifier().to(self.device)
+        img_path = os.path.join(MODEL_DIR, "best_image_model.pth")
         if os.path.exists(img_path):
             ckpt = torch.load(img_path, map_location=self.device, weights_only=False)
             self.image_model.load_state_dict(ckpt["model_state_dict"])
             self.image_model.eval()
             print(f"[OK] Image model loaded (best_val_acc={ckpt.get('best_val_acc',0):.2%})")
         else:
-            print(f"[WARN] Image model not found at {img_path}")
+            print(f"[WARN] Image model not found at {img_path} — run: python src/image_trainer.py")
 
         # --- Text model ---
         text_path = os.path.join(MODEL_DIR, "best_text_model.pth")
@@ -82,7 +86,9 @@ class EmotionPredictor:
     def predict_text(self, text: str) -> dict:
         """Text-only prediction"""
         if not self.text_model or not self.text_processor:
-            return {"error": f"Text model ({self.text_model is not None}) / vocab ({self.text_processor is not None})"}
+            text_path = os.path.join(MODEL_DIR, "best_text_model.pth")
+            vocab_path = os.path.join(DATA_DIR, "text_vocab.pkl")
+            return {"error": f"text_model_exists={os.path.exists(text_path)} vocab_exists={os.path.exists(vocab_path)}"}
             return {"error": "Text model not loaded"}
         tokens = self.text_processor.encode(text).unsqueeze(0).to(self.device)
         with torch.no_grad():
@@ -90,12 +96,14 @@ class EmotionPredictor:
         return self._format(logits, "text")
 
     def predict_image(self, face_np: np.ndarray) -> dict:
-        """Image-only prediction (face_np: 48x48 preprocessed array)"""
+        """Image-only prediction — standalone CNN, no text/audio needed.
+
+        Args:
+            face_np: [48, 48] float32 array normalized to [-1, 1]
+        """
         img = torch.tensor(face_np, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(self.device)
-        txt = torch.zeros(1, MAX_TEXT_LEN, dtype=torch.long).to(self.device)
-        aud = torch.zeros(1, N_MFCC, MAX_AUDIO_FRAMES).to(self.device)
         with torch.no_grad():
-            logits, _ = self.image_model.forward_single_modality(text=txt, image=img, audio=aud)
+            logits = self.image_model(img)  # ImageEmotionClassifier: [B,1,48,48] → [B,7]
         return self._format(logits, "image")
 
     def _format(self, logits: torch.Tensor, modality: str) -> dict:

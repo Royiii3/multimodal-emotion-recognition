@@ -101,7 +101,7 @@ WARMUP_EPOCHS = 2
 IMAGE_AUG_PROB = 0.5
 
 # ==================== Regularization ====================
-MODALITY_DROP_PROB = 0.0
+MODALITY_DROP_PROB = 0.15  # 训练时随机丢弃一个模态 (设计文档 4.4 节)
 
 # ==================== DataLoader ====================
 NUM_WORKERS = 0      # Windows 安全值 (mmap 不可跨进程序列化)
