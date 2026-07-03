@@ -1,9 +1,18 @@
+# Core — Web UI
 streamlit>=1.25.0
+
+# Core — Array & Image
 numpy>=1.21.0
 pillow>=9.0.0
 opencv-python-headless>=4.5.0
-matplotlib>=3.5.0
+
+# Core — Deep Learning
 torch>=2.0.0
-torchvision>=0.15.0
+
+# Training
+matplotlib>=3.5.0
 scikit-learn>=1.0.0
 tqdm>=4.60.0
+
+# Data preprocessing (audio MFCC — legacy, kept for preprocess.py compat)
+librosa>=0.10.0
